@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Name=AI News Desk
+Comment=Rotating AI news viewer above a terminal
+Exec=@HOME@/.local/bin/ai-news-desk --login
+Terminal=false
+Type=Application
+Icon=message-news
+Categories=Network;News;
+Keywords=ai;news;marquee;desk;
+StartupNotify=false

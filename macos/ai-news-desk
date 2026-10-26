@@ -1,0 +1,69 @@
+#!/bin/bash
+# AI news desk (macOS): opens the rotating AI news viewer across the top 65% of the
+# main screen and moves the frontmost window (e.g. the terminal running Claude Code)
+# into the bottom 35%. Sites, timing and zoom live in desk.qml.
+# Needs Qt 6 with QtWebEngine (`brew install qt`), and Accessibility permission for
+# the app you launch this from (System Settings > Privacy & Security > Accessibility),
+# since window placement goes through System Events.
+# Usage: ai-news-desk
+
+DESK=~/.local/share/ai-news-desk/desk.qml
+TITLE="AI News Desk"
+DESK_SHARE=65 # percent of the usable screen height the desk takes
+
+find_qml() {
+  command -v qml && return
+  local brew_qml
+  brew_qml="$(brew --prefix qt 2>/dev/null)/bin/qml"
+  [[ -x $brew_qml ]] && { echo "$brew_qml"; return; }
+  ls -d ~/Qt/6.*/macos/bin/qml 2>/dev/null | sort | tail -1
+}
+
+QML=$(find_qml)
+[[ -x $QML ]] || { echo "No qml found. Install Qt 6 with WebEngine: brew install qt" >&2; exit 1; }
+
+osa() { osascript -e "$1" 2>/dev/null; }
+
+desk_open() {
+  [[ $(osa "tell application \"System Events\" to return exists (window \"$TITLE\" of process \"qml\")") == true ]]
+}
+
+# The window to put under the desk: whatever was in front when we were launched
+front_app=$(osa 'tell application "System Events" to return name of first process whose frontmost is true')
+
+if ! desk_open; then
+  nohup "$QML" "$DESK" >/dev/null 2>&1 &
+  for _ in $(seq 100); do
+    desk_open && break
+    sleep 0.1
+  done
+  desk_open || { echo "News desk window did not appear" >&2; exit 1; }
+fi
+
+# Usable area of the main screen, below the menu bar and above the Dock: x, y, width, height
+read -r sx sy sw sh < <(osascript -l JavaScript -e '
+  ObjC.import("AppKit");
+  const s = $.NSScreen.mainScreen, f = s.frame, v = s.visibleFrame;
+  [v.origin.x, f.size.height - v.origin.y - v.size.height, v.size.width, v.size.height].map(Math.round).join(" ")')
+desk_h=$(( sh * DESK_SHARE / 100 ))
+
+osascript <<EOF
+tell application "System Events"
+  tell window "$TITLE" of process "qml"
+    set position to {$sx, $sy}
+    set size to {$sw, $desk_h}
+  end tell
+  if "$front_app" is not "" and "$front_app" is not "qml" then
+    tell process "$front_app"
+      if (count of windows) > 0 then
+        set position of window 1 to {$sx, $(( sy + desk_h ))}
+        set size of window 1 to {$sw, $(( sh - desk_h ))}
+      end if
+    end tell
+  end if
+end tell
+EOF
+
+# Leave the keyboard where it was
+[[ -n $front_app && $front_app != qml ]] && osa "tell application \"$front_app\" to activate"
+exit 0

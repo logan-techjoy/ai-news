@@ -1,0 +1,75 @@
+#!/bin/bash
+# AI news desk: a frameless viewer rotating AI news sites across the top 65% of
+# the screen, everything else on the workspace (e.g. Claude Code) below it.
+# Sites, timing and zoom live in ~/.local/share/ai-news-desk/desk.qml.
+# Usage: ai-news-desk [terminal-window-address]   (defaults to the focused window)
+#        ai-news-desk --login                     (opens a terminal, then the desk above it)
+
+DESK=~/.local/share/ai-news-desk/desk.qml
+TITLE="AI News Desk"
+DESK_RATIO=1.3 # dwindle ratio for the desk's side of the root split: 1.3 = 65% of the height
+
+addresses() { hyprctl clients -j | jq -r '.[].address' | sort; }
+
+if [[ $1 == --login ]]; then
+  # Give the session a moment to settle, then open the terminal the desk sits above
+  sleep 2
+  before=$(addresses)
+  setsid uwsm-app -- xdg-terminal-exec >/dev/null 2>&1 &
+  for _ in $(seq 100); do
+    opened=$(comm -13 <(echo "$before") <(addresses) | head -1)
+    [[ -n $opened ]] && break
+    sleep 0.1
+  done
+  [[ -n $opened ]] || { echo "Terminal did not appear" >&2; exit 1; }
+  set -- "$opened"
+fi
+
+terminal=${1:-$(hyprctl activewindow -j | jq -r '.address')}
+workspace=$(hyprctl clients -j | jq -r --arg a "$terminal" '.[] | select(.address == $a) | .workspace.id')
+[[ -n $workspace ]] || { echo "No window $terminal" >&2; exit 1; }
+
+dispatch() { hyprctl dispatch "$1" >/dev/null; }
+focus() { dispatch "hl.dsp.focus({ window = \"address:$1\" })"; }
+layout() { dispatch "hl.dsp.layout(\"$1\")"; }
+
+desk_address() {
+  hyprctl clients -j | jq -r --arg t "$TITLE" '.[] | select(.title == $t) | .address' | head -1
+}
+
+# The desk spans the screen width and sits above every other window on the workspace
+desk_on_top() {
+  hyprctl clients -j | jq -e --arg d "$1" --argjson ws "$workspace" '
+    [.[] | select(.workspace.id == $ws and .floating == false)] as $tiled
+    | ($tiled | map(select(.address == $d)) | first) as $desk
+    | ($tiled | map(.at[0]) | min) as $left
+    | ($tiled | map(.at[0] + .size[0]) | max) as $right
+    | $desk.size[0] >= ($right - $left) * 0.95
+      and ($tiled | map(select(.address != $d) | .at[1]) | all(. > $desk.at[1]))' >/dev/null
+}
+
+desk=$(desk_address)
+if [[ -z $desk ]]; then
+  focus "$terminal"
+  setsid uwsm-app -- /usr/lib/qt6/bin/qml "$DESK" >/dev/null 2>&1 &
+  for _ in $(seq 100); do
+    desk=$(desk_address)
+    [[ -n $desk ]] && break
+    sleep 0.1
+  done
+  [[ -n $desk ]] || { echo "News desk window did not appear" >&2; exit 1; }
+fi
+
+# Lift the desk to the root of the layout, then make that split top/bottom with the desk on top
+focus "$desk"
+layout "movetoroot"
+sleep 0.1
+for fix in togglesplit swapsplit togglesplit swapsplit; do
+  desk_on_top "$desk" && break
+  layout "$fix"
+  sleep 0.1
+done
+
+layout "splitratio $DESK_RATIO exact"
+# Leave the keyboard in the terminal
+focus "$terminal"
