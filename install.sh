@@ -24,12 +24,13 @@ EOF
     ;;
   Darwin)
     install -m 755 macos/ai-news-desk "$bin/ai-news-desk"
-    command -v qml >/dev/null || [[ -x "$(brew --prefix qt 2>/dev/null)/bin/qml" ]] ||
-      echo "Qt 6 not found: brew install qt"
+    macos/make-app
+    command -v qml >/dev/null || [[ -x /opt/homebrew/bin/qml || -x /usr/local/bin/qml ]] ||
+      echo "Qt 6 not found: brew install qtwebengine qtdeclarative"
     cat <<'EOF'
-Installed. Run `ai-news-desk` from your terminal (make sure ~/.local/bin is on PATH).
-Give that terminal app Accessibility permission so the desk can place windows:
-  System Settings > Privacy & Security > Accessibility
+Installed. Open "AI News Desk" from Spotlight or ~/Applications: the desk on its own, no terminal.
+Or run `ai-news-desk` from a terminal to tile that terminal under the desk (needs
+Accessibility permission: System Settings > Privacy & Security > Accessibility).
 EOF
     ;;
   *) echo "Unsupported OS: $(uname -s)" >&2; exit 1 ;;

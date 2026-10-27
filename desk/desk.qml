@@ -98,6 +98,32 @@ Window {
         location: Qt.resolvedUrl("zapped.ini")
         property string zapped: "[]"     // JSON list of urls; a one-item list doesn't survive QSettings as a var
     }
+    // ---------- window size and position (persist across restarts) ----------
+    // macOS has no tiler to place the desk, so it reopens where it was last left.
+    Settings {
+        id: place
+        location: Qt.resolvedUrl("window.ini")
+        property int x: 0
+        property int y: 0
+        property int w: 0                // 0 = never saved; keep the default size
+        property int h: 0
+    }
+    property bool placed: false          // don't save geometry until the saved one has been applied
+    function restorePlace() {
+        // Skip a saved spot that no connected screen covers (a monitor was unplugged)
+        const onScreen = Qt.application.screens.some((s) =>
+            place.x >= s.virtualX && place.x < s.virtualX + s.width &&
+            place.y >= s.virtualY && place.y < s.virtualY + s.height)
+        if (place.w >= 400 && place.h >= 200 && onScreen) {
+            win.x = place.x; win.y = place.y; win.width = place.w; win.height = place.h
+        }
+        placed = true
+    }
+    onXChanged: if (placed) place.x = x
+    onYChanged: if (placed) place.y = y
+    onWidthChanged: if (placed) place.w = width
+    onHeightChanged: if (placed) place.h = height
+
     function zappedUrls() { try { return JSON.parse(store.zapped) } catch (e) { return [] } }
     function liveSites() { const gone = zappedUrls(); return allSites.filter((s) => gone.indexOf(s.url) < 0) }
 
@@ -236,7 +262,10 @@ Window {
     }
 
     // Views set up their scripts in their own onCompleted, so start on the next tick
-    Component.onCompleted: Qt.callLater(() => load(viewA, 0))
+    Component.onCompleted: {
+        restorePlace()
+        Qt.callLater(() => load(viewA, 0))
+    }
 
     component DeskView: WebEngineView {
         id: view

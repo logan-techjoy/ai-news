@@ -18,8 +18,14 @@ The launcher uses `hyprctl` to lift the desk to the top of the tiling layout wit
 65/35 split. Add the binding and autostart lines the installer prints
 (`SUPER + ALT + N`, and `ai-news-desk --login` at session start).
 
-**macOS.** Needs Qt 6 with WebEngine: `brew install qt`. Run `ai-news-desk` from your
-terminal: it opens the desk across the top 65% of the main screen and moves the
+**macOS.** Needs Qt 6 with WebEngine: `brew install qtwebengine qtdeclarative` (or the
+full `brew install qt`). The installer builds `~/Applications/AI News Desk.app`
+(`macos/make-app`): the desk alone, as a normal app with no terminal attached. Open it from
+Spotlight or the Dock; it reopens at the size and place you left it (`window.ini` next to
+`desk.qml`) and logs to `~/Library/Logs/ai-news-desk.log`. Like on Linux, the desk browses
+in its own profile (`storageName: "ai-news-desk"`), apart from every other browser.
+
+For the tiled layout instead, run `ai-news-desk` from your terminal: it opens the desk across the top 65% of the main screen and moves the
 terminal's window into the bottom 35%. Window placement goes through System Events, so
 the terminal app needs Accessibility permission (System Settings > Privacy & Security >
 Accessibility). There's no window manager to keep the split, so re-run the command after
@@ -33,6 +39,7 @@ system font if they aren't installed.
 | `linux/ai-news-desk` | Hyprland launcher: opens the desk (or focuses it), lifts it to the top of the layout, sets the 65/35 split |
 | `linux/ai-news-desk.desktop` | App-launcher entry (runs `ai-news-desk --login`) |
 | `macos/ai-news-desk` | macOS launcher: opens the desk and tiles it above the frontmost window |
+| `macos/make-app` | Builds `~/Applications/AI News Desk.app`: the desk on its own, no terminal |
 | `install.sh` | Installs the above for the current OS |
 
 Paths below are the installed locations under `~/.local/share/ai-news-desk/`.

@@ -1,0 +1,44 @@
+#!/bin/bash
+# Builds ~/Applications/AI News Desk.app: the desk on its own, as a normal Mac app.
+# No terminal, no window tiling, no Accessibility permission. Open it from Spotlight,
+# Launchpad or the Dock; it reopens at the size and place it was last left (window.ini).
+# The desk keeps its own browser profile (cookies, cache) apart from every other browser.
+# Usage: macos/make-app   (install.sh runs it on macOS)
+set -euo pipefail
+
+app="$HOME/Applications/AI News Desk.app"
+rm -rf "$app"
+mkdir -p "$app/Contents/MacOS"
+
+cat > "$app/Contents/Info.plist" <<'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleName</key><string>AI News Desk</string>
+  <key>CFBundleDisplayName</key><string>AI News Desk</string>
+  <key>CFBundleIdentifier</key><string>local.ai-news-desk</string>
+  <key>CFBundleExecutable</key><string>ai-news-desk</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleVersion</key><string>1</string>
+  <key>NSHighResolutionCapable</key><true/>
+</dict>
+</plist>
+EOF
+
+# Apps opened from Finder don't get the shell's PATH, so look in Homebrew's prefixes too
+cat > "$app/Contents/MacOS/ai-news-desk" <<'EOF'
+#!/bin/bash
+DESK=~/.local/share/ai-news-desk/desk.qml
+LOG=~/Library/Logs/ai-news-desk.log
+for QML in "$(command -v qml)" /opt/homebrew/bin/qml /usr/local/bin/qml; do
+  [[ -x $QML ]] && break
+done
+if [[ ! -x $QML || ! -f $DESK ]]; then
+  osascript -e 'display alert "AI News Desk" message "Needs Qt (brew install qtwebengine qtdeclarative) and ./install.sh from the ai-news repo."'
+  exit 1
+fi
+QT_FORCE_STDERR_LOGGING=1 exec "$QML" "$DESK" >>"$LOG" 2>&1
+EOF
+chmod 755 "$app/Contents/MacOS/ai-news-desk"
+echo "Built $app"
