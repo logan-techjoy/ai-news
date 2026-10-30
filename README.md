@@ -40,6 +40,7 @@ system font if they aren't installed.
 | `linux/ai-news-desk.desktop` | App-launcher entry (runs `ai-news-desk --login`) |
 | `macos/ai-news-desk` | macOS launcher: opens the desk and tiles it above the frontmost window |
 | `macos/make-app` | Builds `~/Applications/AI News Desk.app`: the desk on its own, no terminal |
+| `macos/make-icon.swift` | Draws the app icon (navy tile, amber newspaper symbol); `make-app` packs it as `.icns` |
 | `install.sh` | Installs the above for the current OS |
 
 Paths below are the installed locations under `~/.local/share/ai-news-desk/`.

@@ -21,6 +21,7 @@ cat > "$app/Contents/Info.plist" <<'EOF'
   <key>CFBundleExecutable</key><string>ai-news-desk</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleVersion</key><string>1</string>
+  <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>NSHighResolutionCapable</key><true/>
 </dict>
 </plist>
@@ -41,4 +42,20 @@ fi
 QT_FORCE_STDERR_LOGGING=1 exec "$QML" "$DESK" >>"$LOG" 2>&1
 EOF
 chmod 755 "$app/Contents/MacOS/ai-news-desk"
+
+# Icon: draw at 1024 px, scale into an iconset, pack as .icns
+tmp=$(mktemp -d)
+mkdir -p "$tmp/AppIcon.iconset" "$app/Contents/Resources"
+swift "$(dirname "$0")/make-icon.swift" "$tmp/icon.png"
+for s in 16 32 128 256 512; do
+  sips -z $s $s "$tmp/icon.png" --out "$tmp/AppIcon.iconset/icon_${s}x${s}.png" >/dev/null
+  sips -z $((s * 2)) $((s * 2)) "$tmp/icon.png" --out "$tmp/AppIcon.iconset/icon_${s}x${s}@2x.png" >/dev/null
+done
+iconutil -c icns "$tmp/AppIcon.iconset" -o "$app/Contents/Resources/AppIcon.icns"
+rm -rf "$tmp"
+
+# An unsigned, unregistered bundle shows up as a file in Spotlight but not as an app
+codesign --force --sign - "$app"
+/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$app"
+mdimport "$app"
 echo "Built $app"
